@@ -1,0 +1,114 @@
+pipeline {
+    agent any
+    parameters {
+        choice(name: 'ACTION', choices: ['Create', 'Delete'], description: 'Choose whether to create or delete an EC2 instance.')
+    }
+    stages {
+        stage('Checkout SCM') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/dev']],
+                userRemoteConfigs: [[url: 'https://github.com/roshniwakodikar/JenkinsPractice.git']]])
+            }
+        }
+        stage('Deploy CloudFormation Stack') {
+            when {
+                expression { params.ACTION == 'Create' }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']]) {
+                    script {
+                        bat '''
+                            powershell -Command "aws configure set region us-east-1"
+                            powershell -Command "aws cloudformation create-stack --stack-name MyEC2InstanceStack --template-body file://cloudformation_ec2.yaml --parameters ParameterKey=InstanceType,ParameterValue=t2.micro --capabilities CAPABILITY_IAM"
+                        '''
+                    }
+                }
+            }
+        }
+        stage('Wait for Stack Completion') {
+            when {
+                expression { params.ACTION == 'Create' }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']]) {
+                    script {
+                        bat '''
+                            powershell -Command "aws configure set region us-east-1"
+                            powershell -Command "aws cloudformation wait stack-create-complete --stack-name MyEC2InstanceStack"
+                        '''
+                    }
+                }
+            }
+        }
+        stage('Get EC2 Public IP') {
+            when {
+                expression { params.ACTION == 'Create' }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']]) {
+                    script {
+                        def ec2InstanceDetails = bat(script: '''
+                            powershell -Command "aws configure set region us-east-1"
+                            powershell -Command "(aws ec2 describe-instances --filters Name=tag:Name,Values=MyEC2Instance --query Reservations[*].Instances[*].PublicIpAddress --output text)"
+                        ''', returnStdout: true).trim()
+                        echo "EC2 Public IP: ${ec2InstanceDetails}"
+                        env.EC2_PUBLIC_IP = ec2InstanceDetails
+                    }
+                }
+            }
+        }
+        stage('Run Ansible Playbook') {
+            when {
+                expression { params.ACTION == 'Create' }
+            }
+            steps {
+                script {
+                    bat '''
+                        ansible-playbook -i "${EC2_PUBLIC_IP}," ansible_provision.yaml
+                    '''
+                }
+            }
+        }
+        stage('Delete CloudFormation Stack') {
+            when {
+                expression { params.ACTION == 'Delete' }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']]) {
+                    script {
+                        bat '''
+                            powershell -Command "aws configure set region us-east-1"
+                            powershell -Command "aws cloudformation delete-stack --stack-name MyEC2InstanceStack"
+                        '''
+                    }
+                }
+            }
+        }
+        stage('Wait for Stack Deletion') {
+            when {
+                expression { params.ACTION == 'Delete' }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']]) {
+                    script {
+                        bat '''
+                            powershell -Command "aws configure set region us-east-1"
+                            powershell -Command "aws cloudformation wait stack-delete-complete --stack-name MyEC2InstanceStack"
+                        '''
+                    }
+                }
+            }
+        }
+    }
+    post {
+        always {
+            echo 'Cleaning up...'
+        }
+        success {
+            echo "Operation '${params.ACTION}' completed successfully."
+        }
+        failure {
+            echo "Failed to perform operation '${params.ACTION}'."
+        }
+    }
+}
