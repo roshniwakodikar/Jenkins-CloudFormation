@@ -19,7 +19,7 @@ pipeline {
                     script {
                         bat '''
                             powershell -Command "aws configure set region us-east-1"
-                            powershell -Command "aws cloudformation create-stack --stack-name MyEC2InstanceStack --template-body file://cloudformation_ec2.yaml --parameters ParameterKey=InstanceType,ParameterValue=t2.micro --capabilities CAPABILITY_IAM"
+                            powershell -Command "aws cloudformation create-stack --stack-name MyEC2InstanceStack --template-body file://JenkinsDelete/cloudformation_ec2.yaml --parameters ParameterKey=InstanceType,ParameterValue=t2.micro --capabilities CAPABILITY_IAM"
                         '''
                     }
                 }
@@ -64,7 +64,7 @@ pipeline {
             steps {
                 script {
                     bat '''
-                        ansible-playbook -i "${EC2_PUBLIC_IP}," ansible_provision.yaml
+                        ansible-playbook -i "${EC2_PUBLIC_IP}," ./JenkinsDelete/ansible_provision.yaml
                     '''
                 }
             }
