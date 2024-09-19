@@ -1,8 +1,8 @@
 pipeline {
     agent any
-    parameters {
-        choice(name: 'ACTION', choices: ['Create', 'Delete'], description: 'Choose whether to create or delete an EC2 instance.')
-    }
+    // parameters {
+    //     choice(name: 'ACTION', choices: ['Create', 'Delete'], description: 'Choose whether to create or delete an EC2 instance.')
+    // }
     stages {
         stage('Checkout SCM') {
             steps {
