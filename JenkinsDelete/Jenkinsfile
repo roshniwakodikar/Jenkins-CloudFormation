@@ -1,13 +1,9 @@
 pipeline {
     agent any
-    // parameters {
-    //     choice(name: 'ACTION', choices: ['Create', 'Delete'], description: 'Choose whether to create or delete an EC2 instance.')
-    // }
     stages {
         stage('Checkout SCM') {
             steps {
-                checkout([$class: 'GitSCM', branches: [[name: '*/dev']],
-                userRemoteConfigs: [[url: 'https://github.com/roshniwakodikar/JenkinsDelete.git']]])
+                checkout scm // Use the SCM configuration defined in the Jenkins job
             }
         }
         stage('Deploy CloudFormation Stack') {
@@ -100,4 +96,3 @@ pipeline {
         }
     }
 }
-
