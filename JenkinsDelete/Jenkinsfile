@@ -57,18 +57,6 @@ pipeline {
                 }
             }
         }
-        stage('Run Ansible Playbook') {
-            when {
-                expression { params.ACTION == 'Create' }
-            }
-            steps {
-                script {
-                    bat '''
-                        ansible-playbook -i "${EC2_PUBLIC_IP}," ./JenkinsDelete/ansible_provision.yaml
-                    '''
-                }
-            }
-        }
         stage('Delete CloudFormation Stack') {
             when {
                 expression { params.ACTION == 'Delete' }
